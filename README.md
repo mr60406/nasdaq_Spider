@@ -143,7 +143,17 @@ $env:MARIADB_PORT = "3306"
 $env:MARIADB_USER = "root"
 $env:MARIADB_PASSWORD = "<password>"
 $env:MARIADB_DATABASE = "api_db"
+
+# 可選：爬蟲執行設定
+$env:NASDAQ_MAX_PAGES = "3"
+$env:NASDAQ_REQUEST_TIMEOUT = "20"
+$env:NASDAQ_DELAY_MIN = "2"
+$env:NASDAQ_DELAY_MAX = "3.5"
+# 可選：替換 API endpoint（需保留 {page} 佔位符）
+$env:NASDAQ_API_URL = "https://www.nasdaq.com/api/reference-group/paginated/article/664546?page={page}&limit=10"
 ```
+
+`MARIADB_PASSWORD` 沒有預設值，執行前必須設定；其餘資料庫設定與爬蟲設定會使用上述範例中的預設值。
 
 執行爬蟲：
 

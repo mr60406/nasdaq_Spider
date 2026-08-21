@@ -6,17 +6,47 @@ import pymysql
 import requests
 from bs4 import BeautifulSoup
 
-MAX_PAGES = 3
-API_URL = "https://www.nasdaq.com/api/reference-group/paginated/article/664546?page={page}&limit=10"
-DB_CONFIG = {
-    "host": os.getenv("MARIADB_HOST", "127.0.0.1"),
-    "port": int(os.getenv("MARIADB_PORT", "3306")),
-    "user": os.getenv("MARIADB_USER", "root"),
-    "password": os.getenv("MARIADB_PASSWORD", "1234"),
-    "database": os.getenv("MARIADB_DATABASE", "api_db"),
-    "charset": "utf8mb4",
-    "autocommit": False,
-}
+DEFAULT_API_URL = (
+    "https://www.nasdaq.com/api/reference-group/paginated/article/"
+    "664546?page={page}&limit=10"
+)
+
+
+def get_required_env(name):
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(f"缺少必要環境變數: {name}")
+    return value
+
+
+def get_positive_int_env(name, default):
+    value = os.getenv(name, str(default))
+    try:
+        parsed = int(value)
+    except ValueError as error:
+        raise RuntimeError(f"環境變數 {name} 必須是整數") from error
+    if parsed <= 0:
+        raise RuntimeError(f"環境變數 {name} 必須大於 0")
+    return parsed
+
+
+MAX_PAGES = get_positive_int_env("NASDAQ_MAX_PAGES", 3)
+REQUEST_TIMEOUT = get_positive_int_env("NASDAQ_REQUEST_TIMEOUT", 20)
+API_URL = os.getenv("NASDAQ_API_URL", DEFAULT_API_URL)
+DELAY_MIN = float(os.getenv("NASDAQ_DELAY_MIN", "2"))
+DELAY_MAX = float(os.getenv("NASDAQ_DELAY_MAX", "3.5"))
+
+
+def get_db_config():
+    return {
+        "host": os.getenv("MARIADB_HOST", "127.0.0.1"),
+        "port": get_positive_int_env("MARIADB_PORT", 3306),
+        "user": os.getenv("MARIADB_USER", "root"),
+        "password": get_required_env("MARIADB_PASSWORD"),
+        "database": os.getenv("MARIADB_DATABASE", "api_db"),
+        "charset": "utf8mb4",
+        "autocommit": False,
+    }
 HEADERS = {
     "Accept": "application/json, text/plain, */*",
     "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
@@ -29,7 +59,7 @@ HEADERS = {
 
 
 def get_connection():
-    return pymysql.connect(**DB_CONFIG)
+    return pymysql.connect(**get_db_config())
 
 
 def load_stock_list(connection):
@@ -81,7 +111,7 @@ def create_news_tables(connection):
 
 
 def article_parser(url):
-    response = requests.get(url, headers=HEADERS, timeout=20)
+    response = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
     response.raise_for_status()
     soup = BeautifulSoup(response.text, "lxml")
     article = soup.find("article")
@@ -193,7 +223,11 @@ def main():
         for page in range(1, MAX_PAGES + 1):
             print(f"\n掃描 Nasdaq API 第 {page}/{MAX_PAGES} 頁")
             try:
-                response = requests.get(API_URL.format(page=page), headers=HEADERS, timeout=20)
+                response = requests.get(
+                    API_URL.format(page=page),
+                    headers=HEADERS,
+                    timeout=REQUEST_TIMEOUT,
+                )
                 response.raise_for_status()
                 items = response.json().get("items", [])
                 scanned_pages += 1
@@ -218,7 +252,7 @@ def main():
                     print_error("資料不完整", news, "缺少 news_id 或 url")
                     continue
 
-                delay = random.uniform(2, 3.5)
+                delay = random.uniform(DELAY_MIN, DELAY_MAX)
                 print(f"抓取正文: {news['news_id']} {matched_symbols}（等待 {delay:.2f} 秒）")
                 time.sleep(delay)
                 try:
