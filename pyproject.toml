@@ -1,0 +1,22 @@
+[project]
+name = "globenewswire-spider"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "mr60406", email = "131777441+mr60406@users.noreply.github.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "beautifulsoup4>=4.15.0",
+    "lxml>=6.1.2",
+    "ramdom>=1.0",
+    "requests>=2.34.2",
+]
+
+[project.scripts]
+globenewswire-spider = "globenewswire_spider:main"
+
+[build-system]
+requires = ["uv_build>=0.12.3,<0.13.0"]
+build-backend = "uv_build"
